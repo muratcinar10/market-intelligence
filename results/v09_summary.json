@@ -1,0 +1,11 @@
+{
+  "messages": 1000,
+  "discarded": 550,
+  "candidates": 450,
+  "events": 132,
+  "large_escalations": 0,
+  "prefilter_seconds": 0.05228614807128906,
+  "small_model_seconds": 13.089062929153442,
+  "large_model_seconds": 4.410743713378906e-05,
+  "total_seconds": 13.141393184661865
+}
