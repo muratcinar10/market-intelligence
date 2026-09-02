@@ -70,7 +70,7 @@ RUMOR_PATTERNS = [
 ]
 
 SARCASM_PATTERNS = [
-    r"\bsure,\b",
+    r"\bsure,",
     r"\bgreat job\b",
     r"\bamazing performance\b",
     r"\bnothing to see here\b",
