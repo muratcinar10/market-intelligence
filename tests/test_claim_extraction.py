@@ -110,8 +110,39 @@ class ClaimExtractionTests(unittest.TestCase):
         self.assertEqual(len(result.claims), 1)
         self.assertEqual(
             result.claims[0].speculative_extension,
-            "the stock will definitely explode",
+            "the stock will definitely explode.",
         )
+
+    def test_extract_json_after_thinking_block(self):
+        raw = """Thinking...
+some reasoning
+...done thinking.
+
+{
+  "claims": [
+    {
+      "statement": "Amazon may acquire a startup"
+    }
+  ]
+}
+"""
+        payload = _extract_json(raw)
+
+        self.assertEqual(len(payload["claims"]), 1)
+        self.assertEqual(
+            payload["claims"][0]["statement"],
+            "Amazon may acquire a startup",
+        )
+
+    def test_extract_json_prefers_claim_object(self):
+        raw = """
+junk {"foo": "bar"}
+more junk
+{"claims":[{"statement":"Tesla delivered 480126 vehicles"}]}
+"""
+        payload = _extract_json(raw)
+
+        self.assertEqual(len(payload["claims"]), 1)
 
 
 if __name__ == "__main__":
