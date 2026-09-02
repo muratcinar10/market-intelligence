@@ -31,7 +31,7 @@ class EvidenceRelation(str, Enum):
 
     CONTEXT = "context"
 
-@dataclass(slots=True)
+@dataclass
 
 class NormalizedMessage:
 
@@ -55,7 +55,7 @@ class NormalizedMessage:
 
     metadata: dict[str, Any] = field(default_factory=dict)
 
-@dataclass(slots=True)
+@dataclass
 
 class Claim:
 
@@ -79,7 +79,7 @@ class Claim:
 
     speculative_extension: str | None = None
 
-@dataclass(slots=True)
+@dataclass
 
 class Evidence:
 
@@ -99,7 +99,7 @@ class Evidence:
 
     source_weight: float | None = None
 
-@dataclass(slots=True)
+@dataclass
 
 class TruthDecision:
 
