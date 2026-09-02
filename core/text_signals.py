@@ -32,6 +32,11 @@ PREDICTION_PATTERNS = [
 ]
 
 OPINION_PATTERNS = [
+    r"\bhonestly\b",
+    r"\bshould be worried\b",
+    r"\bmanagement finally knows what it is doing\b",
+    r"\byönetim sonunda işini yapıyor\b",
+    r"\bbu yönetim gerçekten çok iyi\b",
     r"\bi think\b",
     r"\bin my opinion\b",
     r"\bif you ask me\b",

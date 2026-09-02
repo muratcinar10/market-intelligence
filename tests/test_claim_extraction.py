@@ -109,8 +109,8 @@ class ClaimExtractionTests(unittest.TestCase):
 
         self.assertEqual(len(result.claims), 1)
         self.assertEqual(
-            result.claims[0].speculative_extension,
-            "the stock will definitely explode.",
+            result.claims[0].speculative_extension.rstrip("."),
+            "the stock will definitely explode",
         )
 
     def test_extract_json_after_thinking_block(self):

@@ -8,6 +8,9 @@ from typing import Any, Dict, List
 
 from core.claim_extraction import ClaimExtractionResult, validate_claims_for_message
 from core.domain import Claim, NormalizedMessage
+from core.text_signals import analyze_text
+from core.claim_guardrails import filter_truth_claims
+from core.preprocessor import preprocess_message
 
 
 SYSTEM_PROMPT = """
@@ -271,59 +274,83 @@ def extract_claims(
     message: NormalizedMessage,
     model: str = "qwen3:1.7b",
 ) -> ClaimExtractionResult:
-    factual_text, explicit_inference = _split_explicit_inference(message.text)
+    decisions = preprocess_message(message.text)
 
-    raw = _call_ollama(model=model, prompt=factual_text)
-    payload = _extract_json(raw)
+    all_claims: List[Claim] = []
+    raw_outputs: List[str] = []
 
-    claims: List[Claim] = []
-
-    raw_claims = payload.get("claims", [])
-    if not isinstance(raw_claims, list):
-        raw_claims = []
-
-    for item in raw_claims:
-        if not isinstance(item, dict):
+    for decision in decisions:
+        if not decision.should_extract:
             continue
 
-        statement = _normalize_optional(item.get("statement"))
-        if not statement:
-            continue
+        raw = _call_ollama(
+            model=model,
+            prompt=decision.text,
+        )
+        raw_outputs.append(raw)
 
-        event_type = _normalize_optional(item.get("event_type"))
+        payload = _extract_json(raw)
 
-        # Pure predictions/opinions are useful elsewhere in the product,
-        # but they are not present-tense factual claims for Truth Engine.
-        if event_type in {
-            "prediction",
-            "price_prediction",
-            "demand_prediction",
-            "opinion",
-        }:
-            continue
+        raw_claims = payload.get("claims", [])
+        if not isinstance(raw_claims, list):
+            raw_claims = []
 
-        claims.append(
-            Claim(
-                id=f"claim-{uuid.uuid4().hex[:12]}",
-                message_id=message.id,
-                statement=statement,
-                entity=_normalize_optional(item.get("entity")),
-                ticker=_normalize_optional(item.get("ticker")),
-                metric=_normalize_optional(item.get("metric")),
-                value=_normalize_optional(item.get("value")),
-                period=_normalize_optional(item.get("period")),
-                event_type=event_type,
-                speculative_extension=_normalize_optional(
-                    item.get("speculative_extension")
-                ),
+        segment_claims: List[Claim] = []
+
+        for item in raw_claims:
+            if not isinstance(item, dict):
+                continue
+
+            statement = _normalize_optional(item.get("statement"))
+            if not statement:
+                continue
+
+            event_type = _normalize_optional(item.get("event_type"))
+
+            if event_type in {
+                "prediction",
+                "price_prediction",
+                "demand_prediction",
+                "opinion",
+                "recommendation",
+            }:
+                continue
+
+            segment_claims.append(
+                Claim(
+                    id=f"claim-{uuid.uuid4().hex[:12]}",
+                    message_id=message.id,
+                    statement=statement,
+                    entity=_normalize_optional(item.get("entity")),
+                    ticker=_normalize_optional(item.get("ticker")),
+                    metric=_normalize_optional(item.get("metric")),
+                    value=_normalize_optional(item.get("value")),
+                    period=_normalize_optional(item.get("period")),
+                    event_type=event_type,
+                    speculative_extension=_normalize_optional(
+                        item.get("speculative_extension")
+                    ),
+                )
             )
+
+        if decision.speculative_extension and segment_claims:
+            segment_claims[-1].speculative_extension = (
+                decision.speculative_extension
+            )
+
+        segment_signals = analyze_text(decision.text)
+        segment_claims = filter_truth_claims(
+            segment_claims,
+            segment_signals,
         )
 
-    if explicit_inference and claims:
-        # Attach an explicit causal/predictive extension to the factual
-        # claim instead of allowing it to become a separate truth claim.
-        claims[-1].speculative_extension = explicit_inference
+        all_claims.extend(segment_claims)
 
-    result = validate_claims_for_message(message, claims)
-    result.raw_model_output = raw
+    result = validate_claims_for_message(
+        message,
+        all_claims,
+    )
+
+    result.raw_model_output = "\n---SEGMENT---\n".join(raw_outputs)
     return result
+
