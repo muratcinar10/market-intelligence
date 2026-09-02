@@ -288,12 +288,24 @@ def extract_claims(
                 except ValueError:
                     context_type = ContextType.OPINION
 
+                related_claim_ids = []
+
+                # An inference immediately following a factual segment
+                # belongs to the most recently extracted factual claim.
+                if context_type == ContextType.INFERENCE and all_claims:
+                    related_claim_ids = [all_claims[-1].id]
+
+                    # Backward compatibility while old consumers still
+                    # read speculative_extension.
+                    all_claims[-1].speculative_extension = decision.text
+
                 all_contexts.append(
                     NonFactualContext(
                         id=f"context-{uuid.uuid4().hex[:12]}",
                         message_id=message.id,
                         context_type=context_type,
                         text=decision.text,
+                        related_claim_ids=related_claim_ids,
                     )
                 )
             continue

@@ -160,19 +160,98 @@ def _looks_like_pure_opinion(text: str) -> bool:
     return (signals.opinion or signals.sarcasm_hint) and not has_hard_fact
 
 
+
+def _split_trailing_inference(text: str):
+    patterns = [
+        r",\s*so\s+",
+        r";\s*so\s+",
+        r"\s+so\s+",
+        r",\s*therefore\s+",
+        r";\s*therefore\s+",
+        r"\s+therefore\s+",
+        r",\s*which means\s+",
+        r";\s*which means\s+",
+        r"\s+which means\s+",
+        r";\s*demek ki\s+",
+        r",\s*demek ki\s+",
+        r"\s+demek ki\s+",
+        r";\s*bu yüzden\s+",
+        r",\s*bu yüzden\s+",
+        r"\s+bu yüzden\s+",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if not match:
+            continue
+
+        left = text[:match.start()].strip(" ,;")
+        right = text[match.end():].strip(" ,;")
+
+        if left and right:
+            return left, right
+
+    return text, None
+
+
+def _split_clear_multi_fact(text: str) -> List[str]:
+    """
+    Conservative split for two independent measurable facts
+    connected with and/ve.
+
+    Example:
+    Amazon revenue rose 13% and AWS operating income increased 22% in Q2.
+    """
+
+    patterns = [
+        r"\s+and\s+(?=(?:[A-Z][A-Za-z0-9&.\- ]+|AWS|Azure|Data Center|Operating Income|Gross Margin|Revenue|Sales)\s+(?:rose|fell|grew|increased|decreased|reached|was|were|reported|added|cut))",
+        r"\s+ve\s+(?=(?:[A-ZÇĞİÖŞÜ0-9][A-Za-zÇĞİÖŞÜçğıöşü0-9&.\- ]+|FAVÖK|net kâr|satışlar|gelirler|marj)\s+(?:arttı|azaldı|yükseldi|düştü|ulaştı|açıkladı))",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if not match:
+            continue
+
+        left = text[:match.start()].strip(" ,;")
+        right = text[match.end():].strip(" ,;")
+
+        if left and right:
+            return [left, right]
+
+    return [text]
+
+
 def preprocess_message(text: str) -> List[SegmentDecision]:
     base_segments = segment_message(text)
 
     expanded: List[str] = []
 
     for segment in base_segments:
-        expanded.extend(_split_clause_conjunctions(segment))
+        factual_part, trailing_inference = _split_trailing_inference(segment)
+
+        for part in _split_clear_multi_fact(factual_part):
+            expanded.extend(_split_clause_conjunctions(part))
+
+        if trailing_inference:
+            expanded.append(f"__INFERENCE__::{trailing_inference}")
 
     decisions: List[SegmentDecision] = []
 
     for raw_segment in expanded:
         segment = raw_segment.strip()
         if not segment:
+            continue
+
+        if segment.startswith("__INFERENCE__::"):
+            decisions.append(
+                SegmentDecision(
+                    text=segment.split("::", 1)[1].strip(),
+                    kind="inference_only",
+                    should_extract=False,
+                    context_type="inference",
+                )
+            )
             continue
 
         signals = analyze_text(segment)

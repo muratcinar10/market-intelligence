@@ -46,11 +46,17 @@ class PreprocessorTests(unittest.TestCase):
         )
 
         extractable = [r for r in result if r.should_extract]
+        inference = [
+            r for r in result
+            if r.context_type == "inference"
+        ]
 
         self.assertEqual(len(extractable), 1)
+        self.assertEqual(len(inference), 1)
+        self.assertFalse(inference[0].should_extract)
         self.assertEqual(
-            extractable[0].speculative_extension,
-            "AWS is losing the AI war.",
+            inference[0].text.rstrip("."),
+            "AWS is losing the AI war",
         )
 
     def test_rumor_is_extractable(self):

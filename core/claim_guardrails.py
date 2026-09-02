@@ -15,6 +15,38 @@ BLOCKED_EVENT_TYPES = {
 }
 
 
+
+def _has_factual_payload(claim: Claim) -> bool:
+    metric = (claim.metric or "").strip()
+    value = (claim.value or "").strip()
+    event_type = (claim.event_type or "").strip()
+
+    return bool(metric or value or event_type)
+
+
+def _looks_like_hype_statement(text: str) -> bool:
+    lowered = (text or "").lower()
+
+    patterns = [
+        "nothing can stop",
+        "absolute monster",
+        "to the moon",
+        "moon",
+        "easy money",
+        "generational buying opportunity",
+        "bears are dead",
+        "bears are officially dead",
+        "cannot lose",
+        "can't lose",
+        "unstoppable stock",
+        "tren kalkıyor",
+        "kaçmaz",
+        "uçuyor",
+    ]
+
+    return any(p in lowered for p in patterns)
+
+
 def filter_truth_claims(
     claims: List[Claim],
     signals: TextSignals,
@@ -25,6 +57,12 @@ def filter_truth_claims(
         event_type = (claim.event_type or "").strip().lower()
 
         if event_type in BLOCKED_EVENT_TYPES:
+            continue
+
+        if _looks_like_hype_statement(claim.statement):
+            continue
+
+        if not _has_factual_payload(claim):
             continue
 
         # Pure future prediction/opinion without a factual event
