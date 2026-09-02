@@ -3,13 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List
 
-from core.domain import Claim, NormalizedMessage
+from core.domain import Claim, NonFactualContext, NormalizedMessage
 
 
 @dataclass
 class ClaimExtractionResult:
     message_id: str
     claims: List[Claim] = field(default_factory=list)
+    contexts: List[NonFactualContext] = field(default_factory=list)
     raw_model_output: str | None = None
 
     @property

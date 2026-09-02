@@ -7,7 +7,7 @@ from datetime import datetime
 
 from enum import Enum
 
-from typing import Any
+from typing import Any, List, List
 
 class TruthStatus(str, Enum):
 
@@ -30,6 +30,23 @@ class EvidenceRelation(str, Enum):
     CONTRADICTS = "contradicts"
 
     CONTEXT = "context"
+
+class ContextType(str, Enum):
+    OPINION = "opinion"
+    PREDICTION = "prediction"
+    INFERENCE = "inference"
+    SARCASM = "sarcasm"
+    HYPE = "hype"
+
+
+@dataclass
+class NonFactualContext:
+    id: str
+    message_id: str
+    context_type: ContextType
+    text: str
+    related_claim_ids: List[str] = field(default_factory=list)
+
 
 @dataclass
 

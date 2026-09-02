@@ -14,6 +14,7 @@ class SegmentDecision:
     kind: str
     should_extract: bool
     speculative_extension: str | None = None
+    context_type: str | None = None
 
 
 def _split_clause_conjunctions(text: str) -> List[str]:
@@ -199,6 +200,7 @@ def preprocess_message(text: str) -> List[SegmentDecision]:
                                 kind="factual_candidate",
                                 should_extract=True,
                                 speculative_extension=right or None,
+                                context_type="inference",
                             )
                         )
                     break
@@ -229,6 +231,7 @@ def preprocess_message(text: str) -> List[SegmentDecision]:
                     text=segment,
                     kind="prediction_only",
                     should_extract=False,
+                    context_type="prediction",
                 )
             )
             continue
@@ -239,6 +242,7 @@ def preprocess_message(text: str) -> List[SegmentDecision]:
                     text=segment,
                     kind="opinion_only",
                     should_extract=False,
+                    context_type="opinion",
                 )
             )
             continue

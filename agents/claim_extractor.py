@@ -7,7 +7,7 @@ import uuid
 from typing import Any, Dict, List
 
 from core.claim_extraction import ClaimExtractionResult, validate_claims_for_message
-from core.domain import Claim, NormalizedMessage
+from core.domain import Claim, ContextType, NonFactualContext, NormalizedMessage
 from core.text_signals import analyze_text
 from core.claim_guardrails import filter_truth_claims
 from core.preprocessor import preprocess_message
@@ -277,10 +277,25 @@ def extract_claims(
     decisions = preprocess_message(message.text)
 
     all_claims: List[Claim] = []
+    all_contexts: List[NonFactualContext] = []
     raw_outputs: List[str] = []
 
     for decision in decisions:
         if not decision.should_extract:
+            if decision.context_type:
+                try:
+                    context_type = ContextType(decision.context_type)
+                except ValueError:
+                    context_type = ContextType.OPINION
+
+                all_contexts.append(
+                    NonFactualContext(
+                        id=f"context-{uuid.uuid4().hex[:12]}",
+                        message_id=message.id,
+                        context_type=context_type,
+                        text=decision.text,
+                    )
+                )
             continue
 
         raw = _call_ollama(
@@ -338,6 +353,23 @@ def extract_claims(
                 decision.speculative_extension
             )
 
+            context_name = decision.context_type or "inference"
+
+            try:
+                context_type = ContextType(context_name)
+            except ValueError:
+                context_type = ContextType.INFERENCE
+
+            all_contexts.append(
+                NonFactualContext(
+                    id=f"context-{uuid.uuid4().hex[:12]}",
+                    message_id=message.id,
+                    context_type=context_type,
+                    text=decision.speculative_extension,
+                    related_claim_ids=[segment_claims[-1].id],
+                )
+            )
+
         segment_signals = analyze_text(decision.text)
         segment_claims = filter_truth_claims(
             segment_claims,
@@ -351,6 +383,7 @@ def extract_claims(
         all_claims,
     )
 
+    result.contexts = all_contexts
     result.raw_model_output = "\n---SEGMENT---\n".join(raw_outputs)
     return result
 
